@@ -1,0 +1,10 @@
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.venv/
+node_modules/
+.env
+.DS_Store
+frontend/dist/
+backend/.venv/
+backend/.python-version
