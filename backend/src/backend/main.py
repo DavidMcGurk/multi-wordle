@@ -14,7 +14,7 @@ from backend.api.health import router as health_router
 from backend.config import settings
 from backend.game.service import choose_language, create_game, get_game_state, join_game, ready_game, submit_guess
 
-app = FastAPI(title="Wordle Race")
+app = FastAPI(title="Multi Wordle")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"],

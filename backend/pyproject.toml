@@ -1,7 +1,7 @@
 [project]
-name = "wordle-race-backend"
+name = "multi-wordle-backend"
 version = "0.1.0"
-description = "FastAPI backend for the Wordle Race game"
+description = "FastAPI backend for the Multi Wordle game"
 readme = "README.md"
 authors = [
     { name = "David McGurk", email = "David.McGurk0@gmail.com" },
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-wordle-race = "backend.main:app"
+multi-wordle = "backend.main:app"
 
 [tool.uv]
 package = true
