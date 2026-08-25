@@ -10,7 +10,7 @@ load_dotenv()
 
 @dataclass(frozen=True)
 class Settings:
-    app_name: str = "wordle-race"
+    app_name: str = "multi-wordle"
     backend_port: int = int(os.getenv("BACKEND_PORT", "8000"))
     frontend_url: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
     database_url: str = os.getenv("DATABASE_URL", "postgresql+psycopg://postgres:postgres@localhost:5432/wordle")

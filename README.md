@@ -1,6 +1,8 @@
-# Wordle Race
+# Multi Wordle
 
-A production-quality MVP for a real-time multiplayer Wordle-style race game. It includes a FastAPI backend, a React + TypeScript frontend, deterministic daily scheduling, PostgreSQL-ready persistence, and a lightweight in-memory game engine designed for multiplayer race gameplay.
+A real-time multiplayer Wordle-style race game where you can play in multiple languages at once, competitively. It includes a FastAPI backend, a React + TypeScript frontend, deterministic daily scheduling, PostgreSQL-ready persistence, and a lightweight in-memory game engine designed for multiplayer race gameplay.
+
+**Play online:** <https://davidmcgurk.github.io/multi-wordle/>
 
 ## Prerequisites
 
@@ -99,14 +101,7 @@ cd frontend
 npm run build
 ```
 
-The generated static site can be deployed to a static host such as Cloudflare Pages. The FastAPI backend can be containerised and deployed to Render or a similar provider.
-
-## Deployment notes
-
-- Static frontend: deploy the `frontend/dist` output to a CDN or static host.
-- API: run the FastAPI backend in Docker or a container platform.
-- Database: use PostgreSQL and configure the `DATABASE_URL` environment variable.
-- Keep host-specific assumptions out of the code and instead rely on environment variables.
+The frontend is a static SPA deployed to **GitHub Pages**. The FastAPI backend runs in Docker on **Render**'s free tier. Game state is held in-memory (no database required for the free tier).
 
 ## Project layout
 

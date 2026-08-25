@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: multi-wordle-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: FRONTEND_URL
+        value: https://davidmcgurk.github.io
+      - key: PYTHON_VERSION
+        value: "3.14"
+    healthCheckPath: /health
+    autoDeploy: true
