@@ -13,6 +13,7 @@ COPY backend/src ./src
 COPY data ./data
 
 ENV PYTHONPATH=/app/src
+ENV DATA_DIR=/app/data
 EXPOSE 8000
 
 CMD ["uv", "run", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

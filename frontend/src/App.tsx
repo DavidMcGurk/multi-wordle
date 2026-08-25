@@ -61,6 +61,7 @@ function App() {
   const [notice, setNotice] = useState('')
   const [guessResults, setGuessResults] = useState<GuessResults>({})
   const [ws, setWs] = useState<WebSocket | null>(null)
+  const [reconnectKey, setReconnectKey] = useState(0)
   const lastNoticeRef = useRef<{ message: string; at: number }>({ message: '', at: 0 })
   const lastSubmittedGuessRef = useRef('')
   const lastGameCodeRef = useRef<string | null>(null)
@@ -209,7 +210,7 @@ function App() {
     }
     setWs(socket)
     return () => socket.close()
-  }, [sessionToken])
+  }, [sessionToken, reconnectKey])
 
   const send = (payload: Record<string, unknown>) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -232,8 +233,9 @@ function App() {
   }
 
   const leaveLobby = () => {
-    resetToHome()
     send({ type: 'leave' })
+    resetToHome()
+    setReconnectKey((k) => k + 1)
   }
 
   const currentPlayer = useMemo(() => game?.players.find((player) => player.id === playerId) ?? null, [game, playerId])
