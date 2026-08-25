@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[4]
-DATA_DIR = ROOT / "data"
+_ROOT = Path(__file__).resolve().parents[4]
+DATA_DIR = Path(os.getenv("DATA_DIR", str(_ROOT / "data")))
 
 
 def _load_words(language: str) -> dict[str, list[str]]:
