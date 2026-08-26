@@ -190,7 +190,7 @@ class GameManager:
                 "winner_id": game.winner_id,
                 "winner_decided_at": game.winner_decided_at,
                 "player_id": player.id,
-                "target_word": target if game.status == GameStatus.FINISHED else None,
+                "target_word": target if (game.status == GameStatus.FINISHED or player.outcome == 'lost') else None,
                 "best_progress": player.best_progress,
             }
 

@@ -265,6 +265,24 @@ input:focus {
   font-weight: 600;
   line-height: 1.5;
 }
+.copy-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.copy-button:hover {
+  background: var(--border);
+}
 .board-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -365,7 +383,7 @@ input:focus {
 .key-button {
   min-width: 34px;
   padding: 10px 0;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   font-size: 0.9rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -373,18 +391,25 @@ input:focus {
 .keyboard-row-accent {
   flex-wrap: wrap;
 }
+.key-action {
+  flex: 1.5 1 0;
+  font-size: 0.7rem;
+}
+.key-backspace {
+  font-size: 1.1rem;
+  text-transform: none;
+}
 @media (max-width: 640px) {
   .key-button {
     min-width: 28px;
     padding: 9px 0;
   }
-}
-.keyboard-row-actions {
-  justify-content: center;
-}
-.key-action {
-  min-width: 84px;
-  width: auto;
+  .key-action {
+    font-size: 0.6rem;
+  }
+  .key-backspace {
+    font-size: 0.9rem;
+  }
 }
 .error-banner {
   margin: 0 auto 16px;
@@ -396,6 +421,31 @@ input:focus {
   padding: 0.8rem 1rem;
   font-weight: 600;
 }
+.connection-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0 auto 16px;
+  max-width: 640px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  font-weight: 500;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 @media (max-width: 640px) {
   .app-shell {
     width: 100%;
@@ -406,6 +456,14 @@ input:focus {
   .language-picker button { width: 100%; }
   .join-row { flex-direction: column; }
   .guess-box { flex-direction: column; }
+  .board-grid {
+    width: min(100%, 300px);
+    gap: 5px;
+  }
+  .tile {
+    font-size: clamp(0.9rem, 3.5vw, 1.4rem);
+    border-radius: 8px;
+  }
 }
 @media (min-width: 641px) {
   .app-shell {

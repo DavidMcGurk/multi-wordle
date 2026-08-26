@@ -56,12 +56,14 @@ function App() {
   const [joinCode, setJoinCode] = useState('')
   const [game, setGame] = useState<GameState | null>(null)
   const [currentGuess, setCurrentGuess] = useState('')
-  const [, setConnected] = useState(false)
+  const [connectionState, setConnectionState] = useState<'connecting' | 'connected' | 'disconnected' | 'failed'>('connecting')
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [guessResults, setGuessResults] = useState<GuessResults>({})
   const [ws, setWs] = useState<WebSocket | null>(null)
   const [reconnectKey, setReconnectKey] = useState(0)
+  const reconnectAttemptsRef = useRef(0)
+  const reconnectStartTimeRef = useRef(0)
   const lastNoticeRef = useRef<{ message: string; at: number }>({ message: '', at: 0 })
   const lastSubmittedGuessRef = useRef('')
   const lastGameCodeRef = useRef<string | null>(null)
@@ -95,6 +97,7 @@ function App() {
     return created
   })
   const [playerId, setPlayerId] = useState('')
+  const [copied, setCopied] = useState(false)
 
   const resetToHome = useCallback(() => {
     setGame(null)
@@ -124,97 +127,150 @@ function App() {
       return
     }
 
+    let socket: WebSocket | null = null
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:8000/ws'
-    const socket = new WebSocket(wsUrl)
-    socket.onopen = () => setConnected(true)
-    socket.onclose = () => setConnected(false)
-    socket.onmessage = (event) => {
-      const previousGameCode = lastGameCodeRef.current
-      const message = JSON.parse(event.data) as ServerMessage
-      if (message.type === 'game_state') {
-        const players = message.players.map((player) => ({
-          ...player,
-          name: player.name || 'You',
-          best_progress: Array.isArray(player.best_progress) ? player.best_progress : [0, 0, 0, 0, 0],
-        }))
-        const nextGame: GameState = {
-          code: message.code,
-          status: message.status,
-          winner_id: message.winner_id ?? null,
-          winner_decided_at: message.winner_decided_at ?? null,
-          players,
-        }
-        gameRef.current = nextGame
-        setGame(nextGame)
-        if (previousGameCode !== message.code) {
-          setGuessResults({})
-        }
-        lastGameCodeRef.current = message.code
 
-        const self = players.find((player) => player.session_token === sessionToken)
-        if (self) {
-          playerIdRef.current = self.id
-          setPlayerId(self.id)
-        } else if (players.length > 0) {
-          playerIdRef.current = players[0].id
-          setPlayerId(players[0].id)
-        }
+    const connect = () => {
+      if (cancelled) return
+      if (reconnectAttemptsRef.current === 0) {
+        reconnectStartTimeRef.current = Date.now()
+      }
+      // Give up after 60 seconds of trying to connect
+      if (Date.now() - reconnectStartTimeRef.current >= 60000) {
+        setConnectionState('failed')
+        setError('Unable to connect to the server. Please try again later.')
+        return
+      }
+      setConnectionState('connecting')
+      socket = new WebSocket(wsUrl)
 
-        if (message.winner_id) {
-          const winNotice = self && message.winner_id === self.id ? 'You win!' : 'You lose!'
-          setInlineNotice(winNotice)
-        } else if (!message.winner_id && !gameRef.current?.winner_id && !hasPersistentTerminalNotice) {
-          setInlineNotice('')
-        }
-
-        setScreen(message.status === 'IN_PROGRESS' || message.status === 'FINISHED' ? 'game' : 'lobby')
+      socket.onopen = () => {
+        reconnectAttemptsRef.current = 0
+        setConnectionState('connected')
         setError('')
       }
-      if (message.type === 'guess_result') {
-        const selfIdFromGame = gameRef.current?.players.find((player) => player.session_token === sessionToken)?.id ?? playerIdRef.current
-        const isOwnGuess = !message.player_id || message.player_id === selfIdFromGame
-        if (isOwnGuess) {
-          const guessIndex = Math.max(0, message.guess_count - 1)
-          setGuessResults((previous) => ({
-            ...previous,
-            [guessIndex]: message.result,
-          }))
-          setCurrentGuess('')
-        }
 
-        const winnerId = message.winner_id ?? gameRef.current?.winner_id ?? null
-        const currentPlayerId = selfIdFromGame || null
-        if (winnerId && winnerId === currentPlayerId) {
-          setInlineNotice('You win!')
-          return
+      socket.onclose = () => {
+        setConnectionState('disconnected')
+        socket = null
+        if (cancelled) return
+        // Exponential backoff: 1s, 2s, 4s, 8s, capped at 15s
+        const delay = Math.min(1000 * 2 ** reconnectAttemptsRef.current, 15000)
+        reconnectAttemptsRef.current += 1
+        reconnectTimer = setTimeout(connect, delay)
+      }
+
+      socket.onmessage = (event) => {
+        const previousGameCode = lastGameCodeRef.current
+        const message = JSON.parse(event.data) as ServerMessage
+        if (message.type === 'game_state') {
+          const players = message.players.map((player) => ({
+            ...player,
+            name: player.name || 'You',
+            best_progress: Array.isArray(player.best_progress) ? player.best_progress : [0, 0, 0, 0, 0],
+          }))
+          const nextGame: GameState = {
+            code: message.code,
+            status: message.status,
+            winner_id: message.winner_id ?? null,
+            winner_decided_at: message.winner_decided_at ?? null,
+            players,
+          }
+          gameRef.current = nextGame
+          setGame(nextGame)
+          if (previousGameCode !== message.code) {
+            setGuessResults({})
+          }
+          lastGameCodeRef.current = message.code
+
+          const self = players.find((player) => player.session_token === sessionToken)
+          if (self) {
+            playerIdRef.current = self.id
+            setPlayerId(self.id)
+          } else if (players.length > 0) {
+            playerIdRef.current = players[0].id
+            setPlayerId(players[0].id)
+          }
+
+          if (message.winner_id) {
+            const winNotice = self && message.winner_id === self.id ? 'You win!' : 'You lose!'
+            setInlineNotice(winNotice)
+          } else if (!message.winner_id && !gameRef.current?.winner_id && !hasPersistentTerminalNotice) {
+            setInlineNotice('')
+          }
+
+          setScreen(message.status === 'IN_PROGRESS' || message.status === 'FINISHED' ? 'game' : 'lobby')
+          setError('')
         }
-        if (winnerId && winnerId !== currentPlayerId) {
-          setInlineNotice('You lose!')
-          return
+        if (message.type === 'guess_result') {
+          const selfIdFromGame = gameRef.current?.players.find((player) => player.session_token === sessionToken)?.id ?? playerIdRef.current
+          const isOwnGuess = !message.player_id || message.player_id === selfIdFromGame
+          if (isOwnGuess) {
+            const guessIndex = Math.max(0, message.guess_count - 1)
+            setGuessResults((previous) => ({
+              ...previous,
+              [guessIndex]: message.result,
+            }))
+            setCurrentGuess('')
+          }
+
+          const winnerId = message.winner_id ?? gameRef.current?.winner_id ?? null
+          const currentPlayerId = selfIdFromGame || null
+          const gameFinished = gameRef.current?.status === 'FINISHED'
+          if (winnerId && winnerId === currentPlayerId) {
+            setInlineNotice('You win!')
+            return
+          }
+          if (winnerId && winnerId !== currentPlayerId) {
+            setInlineNotice('You lose!')
+            return
+          }
+          // No winner and game is finished → both players failed → draw
+          if (gameFinished && !winnerId) {
+            setInlineNotice(`You draw! Answer: ${message.target_word?.toUpperCase() ?? ''}`)
+            return
+          }
+          // Player ran out of guesses but game isn't finished yet (opponent still playing)
+          if (message.target_word) {
+            setInlineNotice(`Answer: ${message.target_word.toUpperCase()}`)
+            return
+          }
+          if (!isOwnGuess) {
+            return
+          }
+          if (!winnerId && !hasTerminalWinner && !hasPersistentTerminalNotice) {
+            setInlineNotice('')
+          }
         }
-        if (message.target_word) {
-          setInlineNotice(`Answer: ${message.target_word.toUpperCase()}`)
-          return
-        }
-        if (!isOwnGuess) {
-          return
-        }
-        if (!winnerId && !hasTerminalWinner && !hasPersistentTerminalNotice) {
-          setInlineNotice('')
+        if (message.type === 'error') {
+          setError(message.message)
+          setInlineNotice(message.message)
         }
       }
-      if (message.type === 'error') {
-        setError(message.message)
-        setInlineNotice(message.message)
-      }
+      setWs(socket)
     }
-    setWs(socket)
-    return () => socket.close()
+
+    connect()
+
+    return () => {
+      cancelled = true
+      if (reconnectTimer) clearTimeout(reconnectTimer)
+      if (socket) socket.close()
+    }
   }, [sessionToken, reconnectKey])
 
   const send = (payload: Record<string, unknown>) => {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      setError('Connection is not available.')
+      if (connectionState === 'failed') {
+        setError('Unable to connect to the server. Please try again later.')
+      } else if (connectionState === 'connecting') {
+        setError('Server is waking up — please wait a moment and try again.')
+      } else {
+        setError('Connection is not available. The server may be starting up.')
+      }
       return
     }
     ws.send(JSON.stringify(payload))
@@ -235,13 +291,35 @@ function App() {
   const leaveLobby = () => {
     send({ type: 'leave' })
     resetToHome()
+    reconnectAttemptsRef.current = 0
+    reconnectStartTimeRef.current = 0
     setReconnectKey((k) => k + 1)
+  }
+
+  const copyLobbyCode = () => {
+    if (!game?.code) return
+    navigator.clipboard.writeText(game.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }).catch(() => {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea')
+      textarea.value = game.code
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
   }
 
   const currentPlayer = useMemo(() => game?.players.find((player) => player.id === playerId) ?? null, [game, playerId])
   const opponent = useMemo(() => game?.players.find((player) => player.id !== playerId) ?? null, [game, playerId])
-  const hasTerminalWinner = !!game?.winner_id
-  const hasPersistentTerminalNotice = notice === 'You win!' || notice === 'You lose!'
+  const hasTerminalWinner = !!game?.winner_id || game?.status === 'FINISHED'
+  const hasPersistentTerminalNotice = notice === 'You win!' || notice === 'You lose!' || notice.startsWith('You draw!')
 
   const submitGuess = useCallback(() => {
     if (!game) return
@@ -369,6 +447,24 @@ function App() {
 
       {screen !== 'game' && error ? <div className="error-banner">{error}</div> : null}
 
+      {connectionState !== 'connected' && screen === 'home' && (
+        <div className="connection-status">
+          {connectionState === 'connecting' ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              <span>Server is waking up…</span>
+            </>
+          ) : connectionState === 'disconnected' ? (
+            <>
+              <span className="spinner" aria-hidden="true" />
+              <span>Reconnecting to server…</span>
+            </>
+          ) : (
+            <span>Unable to connect to the server.</span>
+          )}
+        </div>
+      )}
+
       {screen === 'home' && (
        <main className="panel home-panel">
          <h2 className="panel-heading">Choose your language</h2>
@@ -410,7 +506,12 @@ function App() {
         <main className="panel lobby-panel waiting-panel">
           <div className="waiting-content">
             <p className="waiting-label">Waiting for opponent</p>
-            <h2 className="lobby-header">Room code: <span className="lobby-code">{game.code}</span></h2>
+            <h2 className="lobby-header">
+              Room code: <span className="lobby-code">{game.code}</span>
+              <button type="button" className="copy-button" onClick={copyLobbyCode} aria-label="Copy room code">
+                {copied ? '✓ Copied' : '⧉ Copy'}
+              </button>
+            </h2>
             <p className="lobby-note">Your game will begin as soon as the other player joins and selects a language.</p>
             <button type="button" className="ghost-button" onClick={leaveLobby}>Back to start</button>
           </div>
@@ -422,15 +523,28 @@ function App() {
           <div className="board-grid">{rows}</div>
           {notice ? <div className="inline-notice">{notice}</div> : null}
           <div className="keyboard" aria-label="Wordle keyboard">
-            {(keyboardRows[language] ?? keyboardRows.en).map((row, rowIndex) => (
-              <div key={`keyboard-row-${rowIndex}`} className="keyboard-row">
-                {row.map((key) => (
-                  <button key={key} type="button" className="key-button" onClick={() => addLetter(key)}>
-                    {key.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            ))}
+            {(keyboardRows[language] ?? keyboardRows.en).map((row, rowIndex) => {
+              const isBottomRow = rowIndex === 2
+              return (
+                <div key={`keyboard-row-${rowIndex}`} className="keyboard-row">
+                  {isBottomRow ? (
+                    <button type="button" className="key-button key-action key-enter" onClick={submitGuess}>
+                      Enter
+                    </button>
+                  ) : null}
+                  {row.map((key) => (
+                    <button key={key} type="button" className="key-button" onClick={() => addLetter(key)}>
+                      {key.toUpperCase()}
+                    </button>
+                  ))}
+                  {isBottomRow ? (
+                    <button type="button" className="key-button key-action key-backspace" onClick={removeLetter} aria-label="Backspace">
+                      ⌫
+                    </button>
+                  ) : null}
+                </div>
+              )
+            })}
             {language === 'hu' ? (
               <div className="keyboard-row keyboard-row-accent">
                 {hungarianAccentKeys.map((key) => (
@@ -440,14 +554,6 @@ function App() {
                 ))}
               </div>
             ) : null}
-            <div className="keyboard-row keyboard-row-actions">
-              <button type="button" className="key-button key-action" onClick={submitGuess}>
-                Enter
-              </button>
-              <button type="button" className="key-button key-action" onClick={removeLetter}>
-                Delete
-              </button>
-            </div>
           </div>
           <div className="status-strip">
             <div className="opponent-progress" aria-label="Opponent progress">

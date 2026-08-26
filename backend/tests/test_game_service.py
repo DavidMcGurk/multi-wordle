@@ -70,7 +70,7 @@ def test_sixth_guess_reveals_answer() -> None:
     payload = manager.submit_guess(game, game.players[0].id, 'under')
     assert payload['correct'] is False
     assert game.status == GameStatus.IN_PROGRESS
-    assert payload['target_word'] is None
+    assert payload['target_word'] == 'about'
 
 
 def test_tracks_best_progress_and_winner_timestamp() -> None:
