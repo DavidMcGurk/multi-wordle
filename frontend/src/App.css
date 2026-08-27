@@ -403,17 +403,17 @@ input:focus {
   font-size: 1.1rem;
   text-transform: none;
 }
-.key-correct {
+.key-button.key-correct {
   background: #6aaa64;
   border-color: #6aaa64;
   color: white;
 }
-.key-present {
+.key-button.key-present {
   background: #c9b458;
   border-color: #c9b458;
   color: white;
 }
-.key-absent {
+.key-button.key-absent {
   background: #86837f;
   border-color: #86837f;
   color: white;

@@ -104,6 +104,7 @@ function App() {
     setScreen('home')
     setCurrentGuess('')
     setGuessResults({})
+    setJoinCode('')
     lastGameCodeRef.current = null
     setError('')
     setNotice('')
