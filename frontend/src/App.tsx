@@ -379,8 +379,8 @@ function App() {
       for (let col = 0; col < guess.length; col++) {
         const letter = guess[col]
         const tone = result[col] ?? 0
-        const prev = statuses[letter] ?? 0
-        if (tone > prev) {
+        const prev = statuses[letter]
+        if (prev === undefined || tone > prev) {
           statuses[letter] = tone
         }
       }
