@@ -370,6 +370,24 @@ function App() {
     return <div key={`opponent-progress-${index}`} className={tileClass} aria-label={filled ? 'Opponent progress tile' : 'Empty progress tile'} />
   })
 
+  const letterStatuses = useMemo(() => {
+    const statuses: Record<string, number> = {}
+    const guesses = currentPlayer?.guesses ?? []
+    for (let row = 0; row < guesses.length; row++) {
+      const guess = guesses[row]
+      const result = guessResults[row] ?? []
+      for (let col = 0; col < guess.length; col++) {
+        const letter = guess[col]
+        const tone = result[col] ?? 0
+        const prev = statuses[letter] ?? 0
+        if (tone > prev) {
+          statuses[letter] = tone
+        }
+      }
+    }
+    return statuses
+  }, [currentPlayer?.guesses, guessResults])
+
   const addLetter = useCallback((key: string) => {
     const rawKey = key.trim()
     if (!rawKey) {
@@ -532,11 +550,15 @@ function App() {
                       Enter
                     </button>
                   ) : null}
-                  {row.map((key) => (
-                    <button key={key} type="button" className="key-button" onClick={() => addLetter(key)}>
-                      {key.toUpperCase()}
-                    </button>
-                  ))}
+                  {row.map((key) => {
+                    const status = letterStatuses[key] ?? 0
+                    const keyClass = status === 2 ? 'key-button key-correct' : status === 1 ? 'key-button key-present' : status === 0 && key in letterStatuses ? 'key-button key-absent' : 'key-button'
+                    return (
+                      <button key={key} type="button" className={keyClass} onClick={() => addLetter(key)}>
+                        {key.toUpperCase()}
+                      </button>
+                    )
+                  })}
                   {isBottomRow ? (
                     <button type="button" className="key-button key-action key-backspace" onClick={removeLetter} aria-label="Backspace">
                       ⌫
@@ -547,11 +569,15 @@ function App() {
             })}
             {language === 'hu' ? (
               <div className="keyboard-row keyboard-row-accent">
-                {hungarianAccentKeys.map((key) => (
-                  <button key={key} type="button" className="key-button" onClick={() => addLetter(key)}>
-                    {key.toUpperCase()}
-                  </button>
-                ))}
+                {hungarianAccentKeys.map((key) => {
+                  const status = letterStatuses[key] ?? 0
+                  const keyClass = status === 2 ? 'key-button key-correct' : status === 1 ? 'key-button key-present' : status === 0 && key in letterStatuses ? 'key-button key-absent' : 'key-button'
+                  return (
+                    <button key={key} type="button" className={keyClass} onClick={() => addLetter(key)}>
+                      {key.toUpperCase()}
+                    </button>
+                  )
+                })}
               </div>
             ) : null}
           </div>
